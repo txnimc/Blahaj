@@ -2,13 +2,13 @@
 import toni.blahaj.api.ModData
 import toni.blahaj.api.DependencyContainer
 
-interface TxniTemplateSettings {
-    val depsHandler : TxniDependencyHandler
-    val publishHandler : TxniPublishDependencyHandler
+interface BlahajSettings {
+    val depsHandler : BlahajDependencyHandler
+    val publishHandler : BlahajPublishDependencyHandler
 }
 
 
-interface TxniDependencyHandler {
+interface BlahajDependencyHandler {
     fun modrinth(name: String, dep: Any?) = "maven.modrinth:$name:$dep"
 
     fun addGlobal(mod : ModData, deps: DependencyHandler)
@@ -17,7 +17,7 @@ interface TxniDependencyHandler {
     fun addNeo(mod : ModData, deps: DependencyHandler)
 }
 
-interface TxniPublishDependencyHandler {
+interface BlahajPublishDependencyHandler {
     fun addShared(mod : ModData, deps: DependencyContainer)
     fun addCurseForge(mod : ModData, deps: DependencyContainer)
     fun addModrinth(mod : ModData, deps: DependencyContainer)

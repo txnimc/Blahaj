@@ -27,19 +27,38 @@ fun dependencies(template: BlahajBuild): DependencyHandlerScope.() -> Unit = { t
     compileOnly("org.projectlombok:lombok:1.18.34")
     annotationProcessor("org.projectlombok:lombok:1.18.34")
 
-    add("mappings", project.the<LoomGradleExtensionAPI>().layered {
-        officialMojangMappings()
-        val parchmentVersion = when (mod.mcVersion) {
-            "1.18.2" -> "1.18.2:2022.11.06"
-            "1.19.2" -> "1.19.2:2022.11.27"
-            "1.20.1" -> "1.20.1:2023.09.03"
-            "1.21.1" -> "1.21:2024.07.28"
-            else -> ""
+
+    if (setting("options.yarn"))
+    {
+        if (mod.isFabric) {
+            add("mappings", getYarnVersion(mod.mcVersion))
         }
-        if (parchmentVersion.isNotEmpty()) {
-            parchment("org.parchmentmc.data:parchment-$parchmentVersion@zip")
+        else if (mod.isForge) {
+            add("mappings", getYarnVersion(mod.mcVersion) + ":v2")
         }
-    })
+        else if (mod.isNeo) {
+            add("mappings", project.the<LoomGradleExtensionAPI>().layered {
+                mappings(getYarnVersion(mod.mcVersion))
+                mappings("dev.architectury:yarn-mappings-patch-neoforge:1.21+build.4")
+            })
+        }
+    }
+    else {
+        add("mappings", project.the<LoomGradleExtensionAPI>().layered {
+            officialMojangMappings()
+            val parchmentVersion = when (mod.mcVersion) {
+                "1.18.2" -> "1.18.2:2022.11.06"
+                "1.19.2" -> "1.19.2:2022.11.27"
+                "1.20.1" -> "1.20.1:2023.09.03"
+                "1.21.1" -> "1.21:2024.07.28"
+                else -> ""
+            }
+            if (parchmentVersion.isNotEmpty()) {
+                parchment("org.parchmentmc.data:parchment-$parchmentVersion@zip")
+            }
+        })
+    }
+
 
     if (setting("options.txnilib"))
         modImplementation("toni.txnilib:${mod.loader}-${mod.mcVersion}:${project.properties["options.txnilib_version"]}")
@@ -89,3 +108,11 @@ fun dependencies(template: BlahajBuild): DependencyHandlerScope.() -> Unit = { t
 
     vineflowerDecompilerClasspath("org.vineflower:vineflower:1.10.1")
 }}
+
+fun getYarnVersion(mcVersion: String): String = when (mcVersion) {
+    "1.18.2" -> "net.fabricmc:yarn:1.18.2+build.4"
+    "1.19.2" -> "net.fabricmc:yarn:1.19.2+build.28"
+    "1.20.1" -> "net.fabricmc:yarn:1.20.1+build.10"
+    "1.21.1" -> "net.fabricmc:yarn:1.21.1+build.3"
+    else -> ""
+}

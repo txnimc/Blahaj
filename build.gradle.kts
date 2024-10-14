@@ -12,7 +12,7 @@ plugins {
 }
 
 group = "toni.blahaj"
-version = "1.0.4"
+version = "1.0.8"
 
 // Repositories for dependencies
 repositories {

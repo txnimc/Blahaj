@@ -1,10 +1,9 @@
 package toni.blahaj
 
 import toni.blahaj.api.DependencyContainer
-import TxniTemplateSettings
+import BlahajSettings
 import dev.kikugie.stonecutter.StonecutterBuild
 import me.modmuss50.mpp.ModPublishExtension
-import net.fabricmc.loom.LoomGradleExtension
 import net.fabricmc.loom.api.LoomGradleExtensionAPI
 import net.fabricmc.loom.task.RemapJarTask
 import net.fabricmc.loom.task.RemapSourcesJarTask
@@ -32,14 +31,14 @@ open class BlahajBuild internal constructor(val project: Project)  {
     lateinit var loom: LoomGradleExtensionAPI
     lateinit var loader : String
     lateinit var sc : StonecutterBuild
-    lateinit var settings : TxniTemplateSettings
+    lateinit var settings : BlahajSettings
     lateinit var mod : ModData
 
     lateinit var modrinthPath: String
     lateinit var modrinthDir: File
 
-    fun setting(prop : String) : Boolean = project.properties[prop] == "true"
-    fun property(prop : String) : Any? = project.properties[prop]
+    fun setting(prop : String) : Boolean = project.properties.containsKey(prop) && project.properties[prop] == "true"
+    fun property(prop : String) : Any? = if (project.properties.containsKey(prop)) project.properties[prop] else null
 
     fun init() {
         loom = project.extensions.findByType<LoomGradleExtensionAPI>()!!
