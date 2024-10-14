@@ -7,7 +7,7 @@ https://template.txni.dev/
 
 In short, you will need to set up your project with Stonecutter, reference and then apply the plugin, and initialize it
 with a TxniTemplateSettings object. This interface is intended to provide a single configuration location for
-all you will need for 99% of tasks dealing with Gradle during mod development.
+99% of Gradle setup during mod development.
 
 ```kotlin
 plugins { 
