@@ -53,7 +53,7 @@ gradlePlugin {
             id = "toni.blahaj"
             implementationClass = "toni.blahaj.BlahajPlugin"
             displayName = "Blahaj"
-            description = "Minecraft multiversion plugin for full mod project management, built on Stonecutter"
+            description = "Minecraft multiversion plugin, with full mod project management, built on Stonecutter"
             tags = setOf("minecraft", "mods")
         }
     }
