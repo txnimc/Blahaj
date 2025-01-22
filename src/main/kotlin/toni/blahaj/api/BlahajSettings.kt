@@ -4,9 +4,7 @@ import org.gradle.api.artifacts.Dependency
 import org.gradle.api.artifacts.dsl.DependencyHandler
 import toni.blahaj.BlahajBuild
 import toni.blahaj.api.ModData
-import toni.blahaj.setup.modImplementation
-import toni.blahaj.setup.modCompileOnly
-import toni.blahaj.setup.modRuntimeOnly
+import toni.blahaj.setup.*
 
 val templateSettings = object : BlahajSettings() {
     override fun configure() {
@@ -79,6 +77,23 @@ open class BlahajSettings {
 //        build.mod.depends.putIfAbsent(overrideModID ?: modID, "*")
 //        return "maven.modrinth:$modID:$version"
 //    }
+
+
+    fun txnilib(version: String) {
+        deps.modImplementation(modloaderRequired("toni.%s:${mod.loader}-${mod.mcVersion}:%s", "txnilib", version))
+    }
+
+    fun forgeConfig() {
+        if (!mod.isFabric)
+            return
+
+        deps.include(
+            when (mod.mcVersion) {
+                "1.19.2" -> deps.modApi("net.minecraftforge:forgeconfigapiport-fabric:${build.getVersion("deps.forgeconfigapi")}")
+                else -> deps.modApi("fuzs.forgeconfigapiport:forgeconfigapiport-fabric:${build.getVersion("deps.forgeconfigapi")}")
+            }!!
+        )
+    }
 
     fun modloaderRequired(format : String, modID: String, version: String) : String {
         build.mod.depends.putIfAbsent(modID, version)

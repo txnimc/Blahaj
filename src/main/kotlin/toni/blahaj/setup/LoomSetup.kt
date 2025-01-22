@@ -6,26 +6,22 @@ import org.gradle.kotlin.dsl.get
 
 
 fun loomSetup(template : BlahajBuild) : LoomGradleExtensionAPI.() -> Unit = { template.apply {
-    if (template.setting("options.versioned_aw")) {
-        val awFile = project.rootProject.file("src/main/resources/${mod.id}_${mod.mcVersion}.accesswidener")
-        if (awFile.exists())
-        {
-            accessWidenerPath.set(awFile)
-            if (mod.loader == "forge")
-                forge { convertAccessWideners.set(true) }
-        }
-    } else {
-        val awFile = project.rootProject.file("src/main/resources/${mod.id}.accesswidener")
-        if (awFile.exists())
-        {
-            accessWidenerPath.set(awFile)
-            if (mod.loader == "forge")
-                forge { convertAccessWideners.set(true) }
-        }
+    val awPath = when {
+        template.config.versionedAccessWideners || template.setting("options.versioned_aw") -> "src/main/resources/${mod.id}_${mod.mcVersion}.accesswidener"
+        template.config.platformSpecificAccessWideners -> "src/main/resources/${mod.id}_${mod.loader}_${mod.mcVersion}.accesswidener"
+        else -> "src/main/resources/${mod.id}.accesswidener"
+    }
+
+    val awFile = project.rootProject.file(awPath)
+    if (awFile.exists())
+    {
+        accessWidenerPath.set(awFile)
+        if (mod.loader == "forge")
+            forge { convertAccessWideners.set(true) }
     }
 
     if (mod.loader == "forge") forge {
-        mixinConfigs("mixins.${mod.id}.json")
+        mixinConfigs("mixins.${if (template.config.platformSpecificMixins) "${mod.id}_${mod.loader}_${mod.mcVersion}" else if (template.config.versionedMixins) "${mod.id}_${mod.mcVersion}" else mod.id}.json")
     }
 
     if (mod.isActive) {

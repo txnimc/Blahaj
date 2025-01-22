@@ -28,7 +28,7 @@ fun dependencies(template: BlahajBuild): DependencyHandlerScope.() -> Unit = { v
     annotationProcessor("org.projectlombok:lombok:1.18.34")
 
 
-    if (setting("options.yarn"))
+    if (template.config.yarn || setting("options.yarn"))
     {
         if (mod.isFabric) {
             add("mappings", getYarnVersion(mod.mcVersion))
@@ -90,12 +90,12 @@ fun dependencies(template: BlahajBuild): DependencyHandlerScope.() -> Unit = { v
         modImplementation("net.fabricmc.fabric-api:fabric-api:${getVersion("deps.fapi")}")
         modImplementation("net.fabricmc:fabric-loader:${getVersion("deps.fabric_loader")}")
 
-        if (setting("runtime.sodium"))
-            modRuntimeOnly(depsHandler.modrinth("sodium", when (mod.mcVersion) {
-                "1.21.1" -> "mc1.21-0.6.0-beta.1-fabric"
-                "1.20.1" -> "mc1.20.1-0.5.11"
-                else -> null
-            }))
+//        if (setting("runtime.sodium"))
+//            modRuntimeOnly(depsHandler.modrinth("sodium", when (mod.mcVersion) {
+//                "1.21.1" -> "mc1.21-0.6.0-beta.1-fabric"
+//                "1.20.1" -> "mc1.20.1-0.5.11"
+//                else -> null
+//            }))
 
         // JarJar Forge Config API
         if (setting("options.forgeconfig"))
@@ -120,8 +120,8 @@ fun dependencies(template: BlahajBuild): DependencyHandlerScope.() -> Unit = { v
             // Configure the NeoForge specific loom settings here if needed
         }
 
-        if (setting("runtime.sodium"))
-            runtimeOnly(depsHandler.modrinth("sodium", "mc1.21-0.6.0-beta.1-neoforge"))
+//        if (setting("runtime.sodium"))
+//            runtimeOnly(depsHandler.modrinth("sodium", "mc1.21-0.6.0-beta.1-neoforge"))
     }
 
     vineflowerDecompilerClasspath("org.vineflower:vineflower:1.10.1")

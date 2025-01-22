@@ -33,7 +33,8 @@ fun tasks(template : BlahajBuild) : TaskContainer.() -> Unit = { template.apply 
             "license" to mod.license,
             "github" to mod.github,
             "display_name" to mod.displayName,
-            "depends" to mod.getDependsBlock()
+            "depends" to mod.getDependsBlock(),
+            "mixinid" to if (template.config.platformSpecificMixins) "${mod.id}_${mod.loader}_${mod.mcVersion}" else if (template.config.versionedMixins) "${mod.id}_${mod.mcVersion}" else mod.id
         )
 
         map.forEach { (key, value) -> inputs.property(key, value) }

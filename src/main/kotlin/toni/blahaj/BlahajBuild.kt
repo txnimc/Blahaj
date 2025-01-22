@@ -8,7 +8,6 @@ import net.fabricmc.loom.task.RemapJarTask
 import net.fabricmc.loom.task.RemapSourcesJarTask
 import org.gradle.api.JavaVersion
 import org.gradle.api.Project
-import org.gradle.api.initialization.ProjectDescriptor
 import org.gradle.api.plugins.BasePluginExtension
 import org.gradle.api.plugins.JavaPluginExtension
 import org.gradle.api.publish.PublishingExtension
@@ -16,6 +15,7 @@ import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.kotlin.dsl.*
 import systems.manifold.ManifoldExtension
+import toni.blahaj.api.BlahajConfigContainer
 import toni.blahaj.api.ModData
 import toni.blahaj.data.VersionInfo
 import toni.blahaj.setup.dependencies
@@ -30,7 +30,6 @@ open class BlahajBuild internal constructor(val project: Project)  {
     lateinit var projectName : String
     lateinit var loader : String
     lateinit var sc : StonecutterBuild
-
     lateinit var mod : ModData
 
     lateinit var modrinthPath: String
@@ -39,6 +38,7 @@ open class BlahajBuild internal constructor(val project: Project)  {
     private var isInitialized = false
 
     var settings : BlahajSettings = BlahajSettings()
+    val config: BlahajConfigContainer = BlahajConfigContainer()
 
     fun setting(prop : String) : Boolean = project.properties.containsKey(prop) && project.properties[prop] == "true"
     fun property(prop : String) : Any? = if (project.properties.containsKey(prop)) project.properties[prop] else null
@@ -50,7 +50,11 @@ open class BlahajBuild internal constructor(val project: Project)  {
         }
     }
 
-    fun settings(configure: BlahajSettings.() -> Unit) {
+    fun config(configure: BlahajConfigContainer.() -> Unit) {
+        config.apply(configure)
+    }
+
+    fun setup(configure: BlahajSettings.() -> Unit) {
         settings.customConfigure = configure
         initInternal()
     }
@@ -74,8 +78,6 @@ open class BlahajBuild internal constructor(val project: Project)  {
 
         projectName = sc.current.project
 
-        System.out.println("[Blahaj] Creating ModData")
-
         mod = ModData.from(this)
 
         modrinthDir = File(project.properties["client.modrinth_profiles_dir"].toString())
@@ -94,21 +96,6 @@ open class BlahajBuild internal constructor(val project: Project)  {
             val baseExtension = project.extensions.getByType(BasePluginExtension::class.java)
             baseExtension.archivesName.set("${mod.id}-${mod.loader}")
         }
-
-        System.out.println("[Blahaj] Applying plugins")
-
-        with(project.pluginManager) {
-            apply("maven-publish")
-            apply("application")
-            apply("org.jetbrains.kotlin.jvm")
-            apply("org.jetbrains.kotlin.plugin.serialization")
-            apply("dev.kikugie.j52j")
-            apply("dev.architectury.loom")
-            apply("me.modmuss50.mod-publish-plugin")
-            apply("systems.manifold.manifold-gradle-plugin")
-        }
-
-        System.out.println("[Blahaj] Initializing Maven repositories")
 
         project.repositories {
             maven("https://maven.pkg.github.com/ims212/ForgifiedFabricAPI") {
@@ -140,7 +127,6 @@ open class BlahajBuild internal constructor(val project: Project)  {
 
 
         // Loom config
-        System.out.println("[Blahaj] Loom Setup")
         loom.apply(loomSetup(this))
 
         // Dependencies
@@ -148,7 +134,6 @@ open class BlahajBuild internal constructor(val project: Project)  {
         DependencyHandlerScope.of(project.dependencies).apply(dependencies(this))
 
         // Tasks
-        System.out.println("[Blahaj] Task Setup")
         project.tasks.apply(tasks(this))
 
 
@@ -169,7 +154,6 @@ open class BlahajBuild internal constructor(val project: Project)  {
         }
 
         // this won't let me move it to a different class so fuck it, it goes here
-        System.out.println("[Blahaj] Configuring publishing")
         project.extensions.getByType<ModPublishExtension>().apply(fun ModPublishExtension.() {
             file = project.tasks.named("remapJar", RemapJarTask::class.java).get().archiveFile
             additionalFiles.from(project.tasks.named("remapSourcesJar", RemapSourcesJarTask::class.java).get().archiveFile)
