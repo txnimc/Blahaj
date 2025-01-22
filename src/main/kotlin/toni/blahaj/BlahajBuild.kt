@@ -1,25 +1,23 @@
 package toni.blahaj
 
-import toni.blahaj.api.DependencyContainer
 import BlahajSettings
-import dev.kikugie.stonecutter.StonecutterBuild
+import dev.kikugie.stonecutter.build.StonecutterBuild
 import me.modmuss50.mpp.ModPublishExtension
 import net.fabricmc.loom.api.LoomGradleExtensionAPI
 import net.fabricmc.loom.task.RemapJarTask
 import net.fabricmc.loom.task.RemapSourcesJarTask
 import org.gradle.api.JavaVersion
 import org.gradle.api.Project
+import org.gradle.api.initialization.ProjectDescriptor
 import org.gradle.api.plugins.BasePluginExtension
 import org.gradle.api.plugins.JavaPluginExtension
 import org.gradle.api.publish.PublishingExtension
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.SourceSetContainer
-import org.gradle.kotlin.dsl.DependencyHandlerScope
-import org.gradle.kotlin.dsl.assign
-import org.gradle.kotlin.dsl.findByType
-import org.gradle.kotlin.dsl.getByType
+import org.gradle.kotlin.dsl.*
 import systems.manifold.ManifoldExtension
 import toni.blahaj.api.ModData
+import toni.blahaj.data.VersionInfo
 import toni.blahaj.setup.dependencies
 import toni.blahaj.setup.loomSetup
 import toni.blahaj.setup.mavenPublish
@@ -29,20 +27,55 @@ import java.io.File
 @Suppress("MemberVisibilityCanBePrivate", "unused")
 open class BlahajBuild internal constructor(val project: Project)  {
     lateinit var loom: LoomGradleExtensionAPI
+    lateinit var projectName : String
     lateinit var loader : String
     lateinit var sc : StonecutterBuild
-    lateinit var settings : BlahajSettings
+
     lateinit var mod : ModData
 
     lateinit var modrinthPath: String
     lateinit var modrinthDir: File
 
+    private var isInitialized = false
+
+    var settings : BlahajSettings = BlahajSettings()
+
     fun setting(prop : String) : Boolean = project.properties.containsKey(prop) && project.properties[prop] == "true"
     fun property(prop : String) : Any? = if (project.properties.containsKey(prop)) project.properties[prop] else null
+    fun getVersion(prop : String) : Any? = VersionInfo.getVersion(project.properties, prop, projectName)
+
+    fun initInternal() {
+        if (!isInitialized) {
+            init()
+        }
+    }
+
+    fun settings(configure: BlahajSettings.() -> Unit) {
+        settings.customConfigure = configure
+        initInternal()
+    }
 
     fun init() {
-        loom = project.extensions.findByType<LoomGradleExtensionAPI>()!!
+        val stonecutter = project.extensions.findByType<StonecutterBuild>();
+        if (stonecutter == null)
+        {
+            System.out.println("[Blahaj] Could not find Stonecutter for project ${project.name}")
+            return
+        }
+
+        sc = stonecutter ?: throw Exception("Could not find StonecutterBuild!")
+
+        isInitialized = true
+        loom = project.extensions.findByType<LoomGradleExtensionAPI>() ?: throw Exception("Could not find Loom!")
+        if (loom.platform == null)
+            throw Exception("Could not find loom.platform!")
+
         loader = loom.platform.get().name.lowercase()
+
+        projectName = sc.current.project
+
+        System.out.println("[Blahaj] Creating ModData")
+
         mod = ModData.from(this)
 
         modrinthDir = File(project.properties["client.modrinth_profiles_dir"].toString())
@@ -62,15 +95,60 @@ open class BlahajBuild internal constructor(val project: Project)  {
             baseExtension.archivesName.set("${mod.id}-${mod.loader}")
         }
 
+        System.out.println("[Blahaj] Applying plugins")
+
+        with(project.pluginManager) {
+            apply("maven-publish")
+            apply("application")
+            apply("org.jetbrains.kotlin.jvm")
+            apply("org.jetbrains.kotlin.plugin.serialization")
+            apply("dev.kikugie.j52j")
+            apply("dev.architectury.loom")
+            apply("me.modmuss50.mod-publish-plugin")
+            apply("systems.manifold.manifold-gradle-plugin")
+        }
+
+        System.out.println("[Blahaj] Initializing Maven repositories")
+
+        project.repositories {
+            maven("https://maven.pkg.github.com/ims212/ForgifiedFabricAPI") {
+                credentials {
+                    username = "IMS212"
+                    // Read only token
+                    password = "ghp_" + "DEuGv0Z56vnSOYKLCXdsS9svK4nb9K39C1Hn"
+                }
+            }
+            maven("https://www.cursemaven.com")
+            maven("https://api.modrinth.com/maven")
+            maven("https://thedarkcolour.github.io/KotlinForForge/")
+            maven("https://maven.kikugie.dev/releases")
+            maven("https://maven.txni.dev/releases")
+            maven("https://jitpack.io")
+            maven("https://maven.neoforged.net/releases/")
+            maven("https://maven.terraformersmc.com/releases/")
+            maven("https://raw.githubusercontent.com/Fuzss/modresources/main/maven/")
+            maven("https://maven.parchmentmc.org")
+            maven("https://maven.su5ed.dev/releases")
+            maven("https://maven.su5ed.dev/releases")
+            maven("https://maven.fabricmc.net")
+            maven("https://maven.shedaniel.me/")
+            maven("https://maven.fallenbreath.me/releases")
+        }
+
         // The manifold Gradle plugin version. Update this if you update your IntelliJ Plugin!
         project.extensions.getByType<ManifoldExtension>().apply { manifoldVersion = "2024.1.34" }
 
 
         // Loom config
+        System.out.println("[Blahaj] Loom Setup")
         loom.apply(loomSetup(this))
+
         // Dependencies
+        System.out.println("[Blahaj] Dependency Setup")
         DependencyHandlerScope.of(project.dependencies).apply(dependencies(this))
+
         // Tasks
+        System.out.println("[Blahaj] Task Setup")
         project.tasks.apply(tasks(this))
 
 
@@ -91,49 +169,74 @@ open class BlahajBuild internal constructor(val project: Project)  {
         }
 
         // this won't let me move it to a different class so fuck it, it goes here
+        System.out.println("[Blahaj] Configuring publishing")
         project.extensions.getByType<ModPublishExtension>().apply(fun ModPublishExtension.() {
             file = project.tasks.named("remapJar", RemapJarTask::class.java).get().archiveFile
             additionalFiles.from(project.tasks.named("remapSourcesJar", RemapSourcesJarTask::class.java).get().archiveFile)
             displayName =
-                "${mod.name} ${mod.loader.replaceFirstChar { it.uppercase() }} ${mod.version} for ${property("mod.mc_title")}"
+                "${mod.name} ${mod.loader.replaceFirstChar { it.uppercase() }} ${mod.version} for ${mod.mcVersion}"
             version = mod.version
             changelog = project.rootProject.file("CHANGELOG.md").readText()
             type = STABLE
             modLoaders.add(mod.loader)
 
-            val targets = property("mod.mc_targets").toString().split(' ')
+            val targets = getVersion("mod.mc_targets").toString().split(' ')
 
             dryRun = project.providers.environmentVariable("MODRINTH_TOKEN").getOrNull() == null ||
                     project.providers.environmentVariable("CURSEFORGE_TOKEN").getOrNull() == null
 
             modrinth {
                 projectId = property("publish.modrinth").toString()
+                version = "${mod.loader}-${mod.mcVersion}-${mod.version}"
                 accessToken = project.providers.environmentVariable("MODRINTH_TOKEN")
                 targets.forEach(minecraftVersions::add)
-                val deps = DependencyContainer(null, this)
-                settings.publishHandler.addModrinth(mod, deps)
-                settings.publishHandler.addShared(mod, deps)
-                addTxniDeps(deps)
+
+                settings.modrinth = this
+                if (!settings.isConfigured)
+                {
+                    if (settings.customConfigure != null) settings.customConfigure?.let { it(settings) } else settings.configure()
+                    settings.isConfigured = true
+                }
+
+                settings.blahajDependencies.forEach {
+                    it.publishCallbacks.forEach { it() }
+                }
+
+                if (mod.isFabric)
+                    requires("fabric-api")
+
+                if (setting("options.txnilib"))
+                    requires("txnilib")
             }
 
             curseforge {
                 projectId = property("publish.curseforge").toString()
+                version = "${mod.loader}-${mod.mcVersion}-${mod.version}"
                 accessToken = project.providers.environmentVariable("CURSEFORGE_TOKEN")
                 targets.forEach(minecraftVersions::add)
-                val deps = DependencyContainer(this, null)
-                settings.publishHandler.addCurseForge(mod, deps)
-                settings.publishHandler.addShared(mod, deps)
-                addTxniDeps(deps)
+
+                settings.curseforge = this
+                if (!settings.isConfigured)
+                {
+                    if (settings.customConfigure != null) settings.customConfigure?.let { it(settings) } else settings.configure()
+                    settings.isConfigured = true
+                }
+
+                settings.blahajDependencies.forEach {
+                    it.publishCallbacks.forEach { it() }
+                }
+
+                if (mod.isFabric)
+                    requires("fabric-api")
+
+                if (setting("options.txnilib"))
+                    requires("txnilib")
             }
         })
 
         project.extensions.getByType<PublishingExtension>().apply(mavenPublish(this))
     }
 
-    private fun addTxniDeps(deps: DependencyContainer) {
-        if (setting("options.txnilib"))
-            deps.requires("txnilib")
-    }
 
 
 }

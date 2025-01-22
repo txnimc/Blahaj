@@ -2,6 +2,7 @@ package toni.blahaj.setup
 
 import toni.blahaj.tasks.RenameExampleMod
 import net.fabricmc.loom.task.RemapJarTask
+import org.gradle.api.DefaultTask
 import org.gradle.api.file.DuplicatesStrategy
 import org.gradle.api.tasks.Copy
 import org.gradle.api.tasks.TaskContainer
@@ -20,6 +21,7 @@ fun tasks(template : BlahajBuild) : TaskContainer.() -> Unit = { template.apply 
     named<ProcessResources>("processResources") {
         val map = mapOf(
             "modversion" to mod.version,
+            "mcVersion" to mod.mcVersion,
             "mc" to mod.mcDep,
             "id" to mod.id,
             "group" to mod.group,
@@ -31,9 +33,10 @@ fun tasks(template : BlahajBuild) : TaskContainer.() -> Unit = { template.apply 
             "license" to mod.license,
             "github" to mod.github,
             "display_name" to mod.displayName,
-            "fml" to if (mod.loader == "neoforge") "1" else "45",
-            "mnd" to if (mod.loader == "neoforge") "" else "mandatory = true"
+            "depends" to mod.getDependsBlock()
         )
+
+        map.forEach { (key, value) -> inputs.property(key, value) }
 
         filesMatching("fabric.mod.json") { expand(map) }
         filesMatching("META-INF/mods.toml") { expand(map) }
@@ -41,6 +44,22 @@ fun tasks(template : BlahajBuild) : TaskContainer.() -> Unit = { template.apply 
 
         if (!mod.isFabric)
             exclude("fabric.mod.json")
+    }
+
+    // Clean build libs directory because for some reason Arch is stupid (go figure)
+    project.tasks.register<DefaultTask>("cleanJar") {
+        doLast {
+            if (project.layout.buildDirectory.isPresent)
+            {
+                val libs = File(project.layout.buildDirectory.asFile.get(), "libs")
+                if (libs.exists())
+                    libs.deleteRecursively()
+            }
+        }
+    }
+
+    project.tasks.named("jar") {
+        dependsOn("cleanJar")
     }
 
     project.tasks.register("setupManifoldPreprocessors") {

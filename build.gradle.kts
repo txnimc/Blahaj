@@ -12,7 +12,7 @@ plugins {
 }
 
 group = "toni.blahaj"
-version = "1.0.8"
+version = "1.0.55"
 
 // Repositories for dependencies
 repositories {
@@ -36,12 +36,12 @@ repositories {
 
 // Dependencies
 dependencies {
-    implementation("me.modmuss50:mod-publish-plugin:0.6.3")
-    implementation("dev.architectury.loom:dev.architectury.loom.gradle.plugin:1.7-SNAPSHOT") {
+    compileOnly("me.modmuss50:mod-publish-plugin:0.6.3")
+    compileOnly("dev.architectury.loom:dev.architectury.loom.gradle.plugin:1.9-SNAPSHOT") {
         exclude("com.mojang")
     }
-    implementation("systems.manifold:manifold-gradle-plugin:0.0.2-alpha")
-    implementation("dev.kikugie:stonecutter:0.5-alpha.4")
+    compileOnly("systems.manifold:manifold-gradle-plugin:0.0.2-alpha")
+    compileOnly("dev.kikugie:stonecutter:0.6-alpha.5")
 }
 
 gradlePlugin {

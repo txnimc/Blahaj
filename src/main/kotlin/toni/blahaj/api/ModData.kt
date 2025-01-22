@@ -20,9 +20,11 @@ data class ModData (
     val mcVersion : String,
     val isActive : Boolean,
     val loader : String,
+    val projectName : String,
     val isFabric : Boolean,
     val isForge : Boolean,
-    val isNeo : Boolean) {
+    val isNeo : Boolean,
+    val depends : MutableMap<String, String>) {
 
     companion object {
         fun from(txni : BlahajBuild) : ModData {
@@ -36,7 +38,7 @@ data class ModData (
                 txni.project.properties["mod.display_name"].toString(),
                 txni.project.properties["mod.description"].toString(),
                 txni.project.properties["mod.discord"].toString(),
-                txni.project.properties["mod.mc_dep"].toString(),
+                txni.getVersion("mod.mc_dep").toString(),
                 txni.project.properties["mod.license"].toString(),
                 txni.project.properties["mod.github"].toString(),
                 txni.project.properties["client.user"].toString(),
@@ -44,11 +46,36 @@ data class ModData (
                 txni.sc.current.project.substringBeforeLast('-'),
                 txni.sc.active.project == txni.sc.current.project,
                 txni.loader,
+                txni.sc.current.project,
                 txni.loader == "fabric",
                 txni.loader == "forge",
-                txni.loader == "neoforge"
+                txni.loader == "neoforge",
+                mutableMapOf()
             )
 
         }
+    }
+
+    public fun getDependsBlock() : String {
+        val sb = StringBuilder()
+        for (depend in depends) {
+            var value = depend.value;
+            if (isFabric) {
+                if (value != "*")
+                    value = ">=$value"
+                sb.append("\"${depend.key}\": \"${value}\",")
+            } else {
+                if (value != "*")
+                    value = "[$value,)"
+                sb.append("[[dependencies.\"${id}\"]]\n" +
+                        "modId=\"${depend.key}\"\n" +
+                        "mandatory=true\n" +
+                        "versionRange=\"${value}\"\n" +
+                        "ordering=\"NONE\"\n" +
+                        "side=\"BOTH\"")
+            }
+        }
+
+        return sb.toString()
     }
 }

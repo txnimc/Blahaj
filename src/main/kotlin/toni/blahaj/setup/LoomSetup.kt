@@ -6,12 +6,25 @@ import org.gradle.kotlin.dsl.get
 
 
 fun loomSetup(template : BlahajBuild) : LoomGradleExtensionAPI.() -> Unit = { template.apply {
-    val awFile = project.rootProject.file("src/main/resources/${mod.id}.accesswidener")
-    if (awFile.exists())
-        accessWidenerPath.set(awFile)
+    if (template.setting("options.versioned_aw")) {
+        val awFile = project.rootProject.file("src/main/resources/${mod.id}_${mod.mcVersion}.accesswidener")
+        if (awFile.exists())
+        {
+            accessWidenerPath.set(awFile)
+            if (mod.loader == "forge")
+                forge { convertAccessWideners.set(true) }
+        }
+    } else {
+        val awFile = project.rootProject.file("src/main/resources/${mod.id}.accesswidener")
+        if (awFile.exists())
+        {
+            accessWidenerPath.set(awFile)
+            if (mod.loader == "forge")
+                forge { convertAccessWideners.set(true) }
+        }
+    }
 
     if (mod.loader == "forge") forge {
-        convertAccessWideners.set(true)
         mixinConfigs("mixins.${mod.id}.json")
     }
 
