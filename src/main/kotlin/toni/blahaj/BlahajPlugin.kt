@@ -9,6 +9,7 @@ import org.gradle.api.initialization.ProjectDescriptor
 import org.gradle.api.initialization.Settings
 import org.gradle.kotlin.dsl.findByType
 import org.gradle.kotlin.dsl.maven
+import org.gradle.kotlin.dsl.plugins
 import java.io.File
 
 class BlahajPlugin : Plugin<Any> {
@@ -16,46 +17,22 @@ class BlahajPlugin : Plugin<Any> {
     override fun apply(target: Any) {
         when (target) {
             is Settings -> {
-                target.pluginManagement {
-                    repositories {
-                        mavenCentral()
-                        gradlePluginPortal()
-                        maven("https://maven.fabricmc.net/")
-                        maven("https://maven.architectury.dev")
-                        maven("https://maven.minecraftforge.net")
-                        maven("https://maven.neoforged.net/releases/")
-                        maven("https://maven.kikugie.dev/snapshots")
-                        maven("https://maven.kikugie.dev/releases")
-                        maven("https://maven.txni.dev/releases")
-                    }
-                }
-
-                target.pluginManagement {
-                    plugins {
-                        id("dev.kikugie.stonecutter").version("0.6-alpha.5").apply(false)
-                        id("dev.architectury.loom").version("1.9-SNAPSHOT").apply(false)
-                        //id("dev.kikugie.j52j").version("1.0").apply(false)
-                        id("me.modmuss50.mod-publish-plugin").version("0.7.4").apply(false)
-                        id("systems.manifold.manifold-gradle-plugin").version("0.0.2-alpha").apply(false)
-                    }
-                }
-
                 target.extensions.create("blahaj", BlahajSettings::class.java, target)
             }
             is Project -> {
                 if (target.isStonecutterController()) {
                     target.extensions.create("blahaj", BlahajController::class.java, target)
                     addStonecutterChiseled(target)
+                    return
                 }
 
                 if (target.rootProject.name == target.name)
-                    return;
+                    return
 
                 val subprojectName = target.name
                 val platform = if (subprojectName.contains("fabric")) "fabric" else if (subprojectName.contains("neoforge")) "neoforge" else "forge"
 
                 target.extensions.extraProperties["loom.platform"] = platform
-                //target.gradle.startParameter.projectProperties["loom.platform"] = platform
 
                 with(target.plugins) {
                     apply("maven-publish")
@@ -84,25 +61,81 @@ class BlahajPlugin : Plugin<Any> {
             ofTask("build")
         }
 
-        stonecutter registerChiseled target.tasks.register("chiseledBuildAndCollect", stonecutter.chiseled) {
-            group = "project"
-            ofTask("buildAndCollect")
+        stonecutter registerChiseled target.tasks.register("buildAll", stonecutter.chiseled) {
+            group = "blahaj"
+            ofTask("buildAndCollectLatest")
         }
 
-        stonecutter registerChiseled target.tasks.register("chiseledBuildAndCopyToModrinth", stonecutter.chiseled) {
-            group = "project"
+        stonecutter registerChiseled target.tasks.register("copyToModrinthLauncher", stonecutter.chiseled) {
+            group = "blahaj"
             ofTask("buildAndCopyToModrinth")
         }
 
-        stonecutter registerChiseled target.tasks.register("chiseledPublishMods", stonecutter.chiseled) {
-            group = "project"
+        stonecutter registerChiseled target.tasks.register("publishAllRelease", stonecutter.chiseled) {
+            group = "blahaj"
             ofTask("publishMods")
         }
 
-        stonecutter registerChiseled target.tasks.register("chiseledPublishMaven", stonecutter.chiseled) {
-            group = "project"
+        stonecutter registerChiseled target.tasks.register("publishAllMaven", stonecutter.chiseled) {
+            group = "blahaj"
             ofTask("publish")
         }
+
+
+        target.tasks.register("bumpVersionAndChangelog") {
+            group = "blahaj"
+            doLast {
+                val gradleProperties = target.file("gradle.properties")
+                val gradlePropertiesContent = gradleProperties.readText()
+
+                val versionRegex = Regex("""mod\.version=(\d+)\.(\d+)\.(\d+)""")
+                val matchResult = versionRegex.find(gradlePropertiesContent)
+                if (matchResult == null) {
+                    println("Error: mod.version not found in gradle.properties.")
+                    return@doLast
+                }
+
+                val (major, minor, patch) = matchResult.destructured
+
+                println("Update type? (major, minor, patch):")
+                val updateInput = readlnOrNull() ?: "patch"
+
+                val newVersion = when (updateInput) {
+                    "major" -> "${major.toInt() + 1}.$minor.$patch"
+                    "minor" -> "$major.${minor.toInt() + 1}.$patch"
+                    "patch" -> "$major.$minor.${patch.toInt() + 1}"
+                    else -> "$major.$minor.${patch.toInt() + 1}"
+                }
+
+                val updatedPropertiesContent = gradlePropertiesContent.replace(
+                    versionRegex,
+                    "mod.version=$newVersion"
+                )
+
+                gradleProperties.writeText(updatedPropertiesContent)
+
+                println("Enter the changelog for version $newVersion (separate entries with semicolons):")
+                val changelogInput = readLine() ?: ""
+                val changelogEntries = changelogInput.split(";").map { "- ${it.trim()}" }
+
+                val changelogFile = target.file("CHANGELOG.md")
+                val changelogContent = changelogFile.takeIf { it.exists() }?.readText() ?: ""
+
+                val newChangelogContent = buildString {
+                    append("## $newVersion\n")
+                    append(changelogEntries.joinToString("\n"))
+                    append("\n\n")
+                    append(changelogContent)
+                }
+
+                changelogFile.writeText(newChangelogContent)
+
+                println("Version bumped to $newVersion in gradle.properties.")
+                println("Changelog updated with the following entries:")
+                changelogEntries.forEach { println(it) }
+            }
+        }
+
     }
 
      fun Project.isStonecutterController() = when (buildFile.name) {
@@ -121,9 +154,16 @@ open class BlahajSettings internal constructor(val settings: Settings) {
         for (it in loaders) {
             val versStr = "$version-$it"
 
-            val dir = File("versions/$versStr")
+            System.out.println("[Blahaj] " + settings.rootDir.toString())
+
+            val dir = File(settings.rootDir, "versions/$versStr")
             if (!dir.exists()) {
                 dir.mkdirs()
+            }
+
+            val props = File(settings.rootDir, "versions/$versStr/gradle.properties")
+            if (!props.exists()){
+                props.writeText("loom.platform=$it")
             }
 
             vers(versStr, version)

@@ -101,7 +101,7 @@ fun tasks(template : BlahajBuild) : TaskContainer.() -> Unit = { template.apply 
     }
 
     register<RenameExampleMod>("renameExampleMod", project.rootDir, mod.id, mod.name, mod.displayName, mod.namespace, mod.group).configure {
-        group = "build helpers"
+        group = "blahaj"
         description = "Renames the example mod to match the mod ID, name, and display name in gradle.properties"
     }
 
@@ -150,10 +150,17 @@ fun tasks(template : BlahajBuild) : TaskContainer.() -> Unit = { template.apply 
         dependsOn("build")
     }
 
+    val buildAndCollectLatest = register<Copy>("buildAndCollectLatest") {
+        group = "build"
+        from(named<RemapJarTask>("remapJar").get().archiveFile)
+        into(project.rootProject.layout.buildDirectory.file("libs/latest"))
+        dependsOn("buildAndCollect")
+    }
+
     if (sc.current.isActive) {
         project.rootProject.tasks.register("buildActive") {
             group = "project"
-            dependsOn(buildAndCollect)
+            dependsOn(buildAndCollectLatest)
         }
 
         project.rootProject.tasks.register("runActive") {
